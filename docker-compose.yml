@@ -34,8 +34,10 @@ services:
     container_name: jvocab_client
     restart: unless-stopped
     ports:
-      # Map cổng 80 của container ra cổng 80 (hoặc 3000 khi dev) của host
-      - "80:80"
+      # Dùng port 3000 trên host để tránh xung đột với IIS/Apache trên Windows
+      # Truy cập: http://localhost:3000
+      # Trên VPS production dùng docker-compose.prod.yml vẫn map 80:80
+      - "3000:80"
     depends_on:
       - server
     networks:

@@ -15,7 +15,9 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 
 # Cài đầy đủ dependencies (cần devDependencies để chạy vite build)
-RUN npm ci
+# Dùng `npm install` thay vì `npm ci` vì package-lock.json đang bị gitignore
+# nên lock file có thể không đồng bộ với package.json
+RUN npm install
 
 # Copy toàn bộ source code
 COPY . .

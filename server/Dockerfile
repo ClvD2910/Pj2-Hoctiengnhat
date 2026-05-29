@@ -14,7 +14,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 
 # Cài dependencies production-only (bỏ devDependencies để image nhỏ hơn)
-RUN npm ci --omit=dev
+# Dùng `npm install` vì package-lock.json đang bị gitignore
+RUN npm install --omit=dev
 
 # Copy toàn bộ source code còn lại
 COPY . .
