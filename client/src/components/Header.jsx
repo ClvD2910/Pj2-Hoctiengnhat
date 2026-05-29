@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -37,7 +37,7 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
-  const greeting = useMemo(() => GREETINGS[Math.floor(Math.random() * GREETINGS.length)], []);
+  const [greeting] = useState(() => GREETINGS[Math.floor(Math.random() * GREETINGS.length)]);
 
   // Close avatar dropdown on outside click
   useEffect(() => {

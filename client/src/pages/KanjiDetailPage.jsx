@@ -16,13 +16,6 @@ function splitReadings(str) {
   return str ? str.split(/[、,]+/).map((s) => s.trim()).filter(Boolean) : [];
 }
 
-/** Scale the embedded SVG to fill its container. */
-function scaleSvg(svg) {
-  return svg
-    .replace(/width="[^"]*"/, 'width="100%"')
-    .replace(/height="[^"]*"/, 'height="100%"');
-}
-
 // Japanese font stack — falls back to common CJK system fonts
 const JP_FONT = "'Noto Sans JP', 'Noto Serif JP', 'Yu Gothic', 'Hiragino Kaku Gothic Pro', sans-serif";
 
@@ -242,6 +235,7 @@ function RecentKanjiWidget({ currentChar }) {
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("recentKanji") || "[]");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRecent(stored.filter((c) => c !== currentChar).slice(0, 8));
   }, [currentChar]);
 
@@ -280,6 +274,7 @@ export default function KanjiDetailPage() {
   // Fetch
   useEffect(() => {
     if (!char) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError("");
     setKanji(null);
