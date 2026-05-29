@@ -1,6 +1,9 @@
 # =============================================================
-# server/Dockerfile
-# Node.js backend cho MERN stack
+# server/Dockerfile  — PRODUCTION ONLY
+# Node.js / Express backend cho MERN stack
+#
+# Lint được chạy tách biệt trong CI (ci.yml), KHÔNG chạy ở đây.
+# Image này chỉ cài production dependencies để tối ưu kích thước.
 # =============================================================
 
 # Dùng Node 20 LTS phiên bản Alpine để giảm kích thước image
@@ -10,11 +13,10 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy file khai báo dependencies trước để tận dụng Docker layer cache:
-# Nếu package.json không đổi, bước `npm ci` sẽ dùng cache → build nhanh hơn
+# Nếu package.json không đổi, bước `npm install` sẽ dùng cache → build nhanh hơn
 COPY package.json package-lock.json* ./
 
-# Cài dependencies production-only (bỏ devDependencies để image nhỏ hơn)
-# Dùng `npm install` vì package-lock.json đang bị gitignore
+# Cài production dependencies only — bỏ devDependencies (nodemon, v.v.) để image nhỏ hơn
 RUN npm install --omit=dev
 
 # Copy toàn bộ source code còn lại
