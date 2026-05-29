@@ -23,6 +23,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    jlptGoal: {
+      type: String,
+      enum: ["N5", "N4", "N3", "N2", "N1"],
+      default: "N5",
+    },
     notebooks: [
       {
         type: mongoose.Schema.Types.ObjectId,

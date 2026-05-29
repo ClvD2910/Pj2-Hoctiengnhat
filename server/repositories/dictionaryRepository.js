@@ -1,12 +1,11 @@
 const Word = require("../models/Word");
+const wanakana = require("wanakana");
 
-// ---------------------------------------------------------------------------
 // Bulk write (dùng cho import script)
-// ---------------------------------------------------------------------------
 
 /**
  * Insert một batch records vào collection Word.
- * ordered: false → tiếp tục insert dù có document lỗi.
+ * ordered: false - tiếp tục insert dù có document lỗi.
  * @param {Array} batch - Mảng các object word đã được chuẩn hoá
  * @returns {{ inserted: number, errors: number }}
  */
@@ -26,15 +25,27 @@ const bulkInsert = async (batch) => {
   }
 };
 
-// ---------------------------------------------------------------------------
 // Query helpers (dùng cho API)
-// ---------------------------------------------------------------------------
 
 /**
  * Escape special regex characters in user input to prevent ReDoS
  */
 const escapeRegex = (str) => {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+};
+
+const generateSubstrings = (str) => {
+  const chars = [...str]; // spread splits by Unicode code point
+  const len = chars.length;
+  const subs = new Set();
+  for (let start = 0; start < len; start++) {
+    for (let end = start + 1; end <= len; end++) {
+      if (end - start < len) { // exclude the full string itself
+        subs.add(chars.slice(start, end).join(""));
+      }
+    }
+  }
+  return [...subs];
 };
 
 /**
@@ -69,46 +80,189 @@ const findByMeaning = async (meaning) => {
 };
 
 /**
- * Unified search: auto-detect input type and query accordingly
+ * Unified search: auto-detect input type, score by relevance, paginate.
+ *
+ * Scoring (Japanese input):
+ *   100 – kanji exact match
+ *    80 – reading exact match
+ *    40 – kanji starts with query
+ *    20 – reading starts with query
+ *    +length bonus – shorter word = more direct hit
+ *
+ * Scoring (Vietnamese / Latin input):
+ *   100 – any meaning is an exact match
+ *    80 – sinoViet exact match
+ *    40 – any meaning starts with query
+ *    20 – sinoViet starts with query
  */
 const search = async (query, { page = 1, limit = 20 } = {}) => {
   const skip = (page - 1) * limit;
   const escaped = escapeRegex(query);
-
-  // Detect if query contains Japanese characters (Kanji / Hiragana / Katakana)
   const isJapanese = /[\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/.test(query);
-  // Detect if query is pure romaji (Latin letters only)
-  const isRomaji = /^[a-zA-Z\s]+$/.test(query);
 
-  let filter;
+  // Romaji detection: pure-ASCII kana romanisation (e.g. "benkyou", "taberu").
+  // wanakana.isRomaji returns false for Vietnamese (diacritics) and pure numbers.
+  const isRomaji = !isJapanese && wanakana.isRomaji(query);
 
-  if (isJapanese) {
-    // Search across kanji and hiragana fields
-    filter = {
+  // When romaji, convert to hiragana so we can search the `reading` field.
+  const effectiveQuery  = isRomaji ? wanakana.toHiragana(query) : query;
+  const escapedEffective = isRomaji ? escapeRegex(effectiveQuery) : escaped;
+
+  let matchStage;
+  let scoreExpr;
+
+  if (isJapanese || isRomaji) {
+    // Sub-word search: find entries whose kanji/reading is a proper substring of query
+    // e.g. query="勉強中" → also returns "勉強" (限 10 chars to keep substrings bounded)
+    const substrings = effectiveQuery.length <= 10 ? generateSubstrings(effectiveQuery) : [];
+
+    matchStage = {
       $or: [
-        { kanji: { $regex: escaped, $options: "i" } },
-        { hiragana: { $regex: escaped, $options: "i" } },
+        { kanji:   { $regex: escapedEffective, $options: "i" } },
+        { reading: { $regex: escapedEffective, $options: "i" } },
+        ...(substrings.length > 0
+          ? [{ kanji: { $in: substrings } }, { reading: { $in: substrings } }]
+          : []),
       ],
     };
-  } else if (isRomaji) {
-    // Could be romaji or Vietnamese — search both
-    filter = {
-      $or: [
-        { romaji: { $regex: `^${escaped}`, $options: "i" } },
-        { meanings: { $regex: escaped, $options: "i" } },
+    scoreExpr = {
+      $add: [
+        { $cond: [{ $eq: ["$kanji", effectiveQuery] }, 100, 0] },
+        { $cond: [{ $eq: ["$reading", effectiveQuery] }, 80, 0] },
+        {
+          $cond: [
+            {
+              $and: [
+                { $gt: [{ $strLenCP: { $ifNull: ["$kanji", ""] } }, 0] },
+                { $regexMatch: { input: "$kanji", regex: `^${escapedEffective}`, options: "i" } },
+              ],
+            },
+            40, 0,
+          ],
+        },
+        {
+          $cond: [
+            { $regexMatch: { input: { $ifNull: ["$reading", ""] }, regex: `^${escapedEffective}`, options: "i" } },
+            20, 0,
+          ],
+        },
+        // Bonus: ưu tiên từ ngắn hơn (khớp trực tiếp hơn)
+        {
+          $cond: [
+            { $gt: [{ $strLenCP: { $ifNull: ["$kanji", "$reading"] } }, 0] },
+            { $divide: [10, { $strLenCP: { $ifNull: ["$kanji", "$reading"] } }] },
+            0,
+          ],
+        },
+        // Sub-word bonus: score by length so longer sub-word hits rank higher
+        ...(substrings.length > 0
+          ? [
+              {
+                $cond: [
+                  { $and: [
+                    { $gt: [{ $strLenCP: { $ifNull: ["$kanji", ""] } }, 0] },
+                    { $in: [{ $ifNull: ["$kanji", ""] }, substrings] },
+                  ]},
+                  { $multiply: [{ $strLenCP: { $ifNull: ["$kanji", ""] } }, 5] },
+                  0,
+                ],
+              },
+              {
+                $cond: [
+                  { $and: [
+                    { $gt: [{ $strLenCP: { $ifNull: ["$reading", ""] } }, 0] },
+                    { $in: [{ $ifNull: ["$reading", ""] }, substrings] },
+                  ]},
+                  { $multiply: [{ $strLenCP: { $ifNull: ["$reading", ""] } }, 3] },
+                  0,
+                ],
+              },
+            ]
+          : []),
       ],
     };
   } else {
-    // Vietnamese or mixed input — search meanings
-    filter = {
-      meanings: { $regex: escaped, $options: "i" },
+    matchStage = {
+      $or: [
+        { meanings: { $regex: escaped, $options: "i" } },
+        { sinoViet: { $regex: escaped, $options: "i" } },
+      ],
+    };
+    scoreExpr = {
+      $add: [
+        // Nghĩa khớp chính xác
+        {
+          $cond: [
+            {
+              $gt: [
+                {
+                  $size: {
+                    $filter: {
+                      input: { $ifNull: ["$meanings", []] },
+                      as: "m",
+                      cond: { $eq: ["$$m", query] },
+                    },
+                  },
+                },
+                0,
+              ],
+            },
+            100, 0,
+          ],
+        },
+        // sinoViet khớp chính xác
+        {
+          $cond: [
+            { $regexMatch: { input: { $ifNull: ["$sinoViet", ""] }, regex: `^${escaped}$`, options: "i" } },
+            80, 0,
+          ],
+        },
+        // Nghĩa bắt đầu bằng query
+        {
+          $cond: [
+            {
+              $gt: [
+                {
+                  $size: {
+                    $filter: {
+                      input: { $ifNull: ["$meanings", []] },
+                      as: "m",
+                      cond: { $regexMatch: { input: "$$m", regex: `^${escaped}`, options: "i" } },
+                    },
+                  },
+                },
+                0,
+              ],
+            },
+            40, 0,
+          ],
+        },
+        // sinoViet bắt đầu bằng query
+        {
+          $cond: [
+            { $regexMatch: { input: { $ifNull: ["$sinoViet", ""] }, regex: `^${escaped}`, options: "i" } },
+            20, 0,
+          ],
+        },
+      ],
     };
   }
 
-  const [results, total] = await Promise.all([
-    Word.find(filter).skip(skip).limit(limit).lean(),
-    Word.countDocuments(filter),
-  ]);
+  const pipeline = [
+    { $match: matchStage },
+    { $addFields: { _score: scoreExpr } },
+    { $sort: { _score: -1 } },
+    {
+      $facet: {
+        results: [{ $skip: skip }, { $limit: limit }, { $project: { _score: 0 } }],
+        total:   [{ $count: "count" }],
+      },
+    },
+  ];
+
+  const [agg] = await Word.aggregate(pipeline);
+  const results = agg?.results ?? [];
+  const total   = agg?.total?.[0]?.count ?? 0;
 
   return {
     results,

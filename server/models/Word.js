@@ -1,16 +1,21 @@
 const mongoose = require("mongoose");
 
+// Schema khớp với dữ liệu Yomichan thực tế:
 const wordSchema = new mongoose.Schema(
   {
     kanji: {
       type: String,
       default: "",
     },
-    hiragana: {
+    reading: {
       type: String,
-      required: [true, "Hiragana is required"],
+      default: "",
     },
-    romaji: {
+    pos: {
+      type: String,
+      default: "",
+    },
+    sinoViet: {
       type: String,
       default: "",
     },
@@ -18,25 +23,13 @@ const wordSchema = new mongoose.Schema(
       type: [String],
       required: [true, "At least one meaning is required"],
     },
-    examples: [
-      {
-        japanese: { type: String, required: true },
-        vietnamese: { type: String, required: true },
-      },
-    ],
-    jlpt_level: {
-      type: String,
-      enum: ["N5", "N4", "N3", "N2", "N1"],
-      default: "N5",
-    },
-    kanji_svg: {
-      type: String,
-      default: "",
-    },
   },
   {
     timestamps: true,
   }
 );
+
+wordSchema.index({ kanji: 1 });
+wordSchema.index({ reading: 1 });
 
 module.exports = mongoose.model("Word", wordSchema);

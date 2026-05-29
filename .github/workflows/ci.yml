@@ -1,0 +1,95 @@
+# =============================================================
+# .github/workflows/ci.yml
+# CI Pipeline — Chạy khi có Pull Request vào `develop` hoặc `main`
+#
+# Mục đích: Kiểm tra chất lượng code (lint) và xác nhận Docker
+#           images có thể build thành công (dry-run) trước khi merge.
+# =============================================================
+
+name: CI — Lint & Docker Build Check
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+
+  # ────────────────────────────────────────────────────────────
+  # Job 1: Lint & install check
+  # ────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Install Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Client ──────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Run client linter
+        working-directory: client
+        run: npm run lint
+
+      # ── Server ──────────────────────────────────────────────
+      - name: Install server dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+  # ────────────────────────────────────────────────────────────
+  # Job 2: Docker build dry-run (không push lên registry)
+  # Đảm bảo cả hai Dockerfile không bị lỗi build
+  # ────────────────────────────────────────────────────────────
+  docker-build-check:
+    name: Docker Build Dry-Run
+    runs-on: ubuntu-latest
+    # Chỉ chạy sau khi lint pass
+    needs: lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Bật Docker Buildx để hỗ trợ multi-platform và layer cache tốt hơn
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build server image (dry-run, no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: false
+          # Cache giữa các lần chạy để tăng tốc độ
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: jvocab-server:ci-check
+
+      - name: Build client image (dry-run, no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          file: ./client/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: jvocab-client:ci-check

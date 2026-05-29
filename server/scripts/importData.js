@@ -2,7 +2,6 @@
  * Import Data Script
  * ------------------
  * Script độc lập để import dữ liệu từ vựng vào MongoDB từ file JSON hoặc CSV.
- * Sử dụng Stream để xử lý file lớn (hàng trăm MB) mà không tốn RAM.
  *
  * Usage:
  *   node scripts/importData.js <filePath|dirPath> [options]
@@ -19,7 +18,6 @@ const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
-const { toRomaji } = require("wanakana");
 
 // Load env từ thư mục server
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -29,21 +27,23 @@ const { bulkInsert } = require("../repositories/dictionaryRepository");
 // Ensure the Word model is registered
 require("../models/Word");
 
-// ---------------------------------------------------------------------------
 // CLI Arguments
-// ---------------------------------------------------------------------------
+
 const args = process.argv.slice(2);
+const USE_MOCK = args.includes("--mock");
 const filePath = args.find((a) => !a.startsWith("--"));
 
-if (!filePath) {
+if (!filePath && !USE_MOCK) {
   console.error("❌ Thiếu đường dẫn file hoặc thư mục.");
   console.error(
     "   Usage: node scripts/importData.js <filePath|dirPath> [--batch=1000] [--jsonpath=*] [--drop] [--format=yomichan]"
   );
+  console.error("   Hoặc dùng mock data: node scripts/importData.js --mock [--drop]");
   process.exit(1);
 }
 
-const resolvedPath = path.resolve(filePath);
+const MOCK_DIR = path.resolve(__dirname, "../data/mock");
+const resolvedPath = USE_MOCK ? MOCK_DIR : path.resolve(filePath);
 
 const getFlag = (name, defaultVal) => {
   const flag = args.find((a) => a.startsWith(`--${name}=`));
@@ -53,11 +53,10 @@ const getFlag = (name, defaultVal) => {
 const BATCH_SIZE = parseInt(getFlag("batch", "1000"), 10);
 const JSON_PATH = getFlag("jsonpath", "*");
 const DROP_BEFORE = args.includes("--drop");
-const FORMAT = getFlag("format", "auto"); // "auto" | "yomichan"
+// --mock tự động dùng format yomichan vì mock data là term_bank_*.json
+const FORMAT = USE_MOCK ? "yomichan" : getFlag("format", "auto"); // "auto" | "yomichan"
 
-// ---------------------------------------------------------------------------
 // Data Transformer — Generic (object-based records)
-// ---------------------------------------------------------------------------
 
 function transformRecord(raw) {
   let meanings = raw.meanings;
@@ -106,56 +105,40 @@ function transformRecord(raw) {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Data Transformer — Yomichan Format 3 (array-based records)
-// ---------------------------------------------------------------------------
 // Yomichan term_bank entry: [kanji, reading, posTags, posInfo, score, meanings[], seqId, tags]
 
 function transformYomichanRecord(raw) {
   if (!Array.isArray(raw) || raw.length < 6) return null;
 
-  const word = raw[0] || "";
-  const reading = raw[1] || "";
-  const meaningsRaw = raw[5];
+  const kanji   = (raw[0] || "").trim();
+  const reading = (raw[1] || "").trim();
+  const pos     = (raw[2] || "").trim();
 
-  // meanings: lọc bỏ các chuỗi chứa metadata (ký tự @ hoặc dài quá, chứa \\n)
-  let meanings = [];
-  if (Array.isArray(meaningsRaw)) {
-    meanings = meaningsRaw
-      .filter((m) => typeof m === "string")
-      .map((m) => m.replace(/@@.*$/, "").trim())
-      .filter((m) => m && !m.startsWith("@") && !m.includes("\\n"));
-  }
+  // raw[5] là mảng 1 phần tử: "SINO_VN\n1. nghĩa1\n2. nghĩa2\n"
+  const gloss = Array.isArray(raw[5]) && typeof raw[5][0] === "string"
+    ? raw[5][0]
+    : "";
+  if (!gloss.trim()) return null;
+
+  const lines = gloss.split("\n");
+
+  // Dòng đầu tiên là âm Hán Việt (chữ hoa), có thể rỗng
+  const sinoViet = (lines[0] || "").trim();
+
+  // Các dòng còn lại dạng "1. nghĩa" → lấy phần sau số thứ tự
+  const meanings = lines
+    .slice(1)
+    .map((l) => l.replace(/^\d+\.\s*/, "").trim())
+    .filter(Boolean);
+
   if (meanings.length === 0) return null;
+  if (!kanji && !reading) return null;
 
-  // hiragana: nếu reading có, dùng reading; nếu không, dùng word (katakana-only words)
-  const hiragana = reading || word;
-
-  // romaji: chuyển đổi bằng wanakana
-  let romaji = "";
-  try {
-    romaji = toRomaji(hiragana);
-  } catch {
-    romaji = "";
-  }
-
-  // kanji: chỉ gán nếu word khác reading (tức word chứa kanji)
-  const kanji = reading && word !== reading ? word : "";
-
-  return {
-    kanji,
-    hiragana,
-    romaji,
-    meanings,
-    examples: [],
-    jlpt_level: undefined,
-    kanji_svg: "",
-  };
+  return { kanji, reading, pos, sinoViet, meanings };
 }
 
-// ---------------------------------------------------------------------------
 // Resolve file list — nếu là thư mục, tìm tất cả term_bank_*.json
-// ---------------------------------------------------------------------------
 
 function resolveFiles(inputPath) {
   const stat = fs.statSync(inputPath);
@@ -176,9 +159,7 @@ function resolveFiles(inputPath) {
   throw new Error(`"${inputPath}" không phải file hay thư mục hợp lệ.`);
 }
 
-// ---------------------------------------------------------------------------
 // Import a single file
-// ---------------------------------------------------------------------------
 
 async function importFile(fileAbsPath, transform, stats) {
   const parser = getParser(fileAbsPath, { jsonPath: JSON_PATH });
@@ -208,7 +189,7 @@ async function importFile(fileAbsPath, transform, stats) {
       stats.totalProcessed++;
       const record = transform(rawRecord);
 
-      if (!record || !record.hiragana) {
+      if (!record) {
         stream.resume();
         return;
       }
@@ -240,9 +221,7 @@ async function importFile(fileAbsPath, transform, stats) {
   });
 }
 
-// ---------------------------------------------------------------------------
 // Main Import Pipeline
-// ---------------------------------------------------------------------------
 
 async function runImport() {
   // 1. Connect to MongoDB
@@ -282,9 +261,7 @@ async function runImport() {
   return stats;
 }
 
-// ---------------------------------------------------------------------------
 // Execute
-// ---------------------------------------------------------------------------
 
 runImport()
   .then((stats) => {
