@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import WordDetailModal from "../components/WordDetailModal";
 import {
   getNotebookById,
-  deleteNotebook,
   removeWordFromNotebook,
   updateWordInNotebook,
   addCustomWordToNotebook,
@@ -212,7 +211,7 @@ function EditModal({ entry, notebookId, onSave, onClose }) {
 }
 
 // Word card
-function WordListItem({ entry, notebookId, onRemove, onEdit, removing, onOpenDetail, onToggleMastered, displaySettings }) {
+function WordListItem({ entry, onRemove, onEdit, removing, onOpenDetail, onToggleMastered, displaySettings }) {
   const [menuOpen, setMenuOpen]   = useState(false);
   const [speaking, setSpeaking]   = useState(false);
   const [mastered, setMastered]   = useState(!!entry.mastered);

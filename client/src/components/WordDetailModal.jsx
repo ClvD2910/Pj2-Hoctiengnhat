@@ -281,6 +281,7 @@ function KanjiDetailPanel({ char, onWordClick, onKanjiClick }) {
 
   useEffect(() => {
     if (!char) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError("");
     setKanji(null);
@@ -489,6 +490,7 @@ function WordSearchPanel({ query, onWordClick, onKanjiClick }) {
   // Fetch search results
   useEffect(() => {
     if (!query) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setResults([]);
     setExactMatch(null);
@@ -521,6 +523,7 @@ function WordSearchPanel({ query, onWordClick, onKanjiClick }) {
     const src = exactMatch?.kanji || "";
     const chars = src.match(KANJI_RE);
     if (!chars || chars.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setKanjiDetails([]);
       return;
     }

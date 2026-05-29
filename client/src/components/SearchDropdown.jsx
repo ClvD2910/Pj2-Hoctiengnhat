@@ -136,7 +136,6 @@ export default function SearchDropdown({
       setActiveIdx((i) => (i - 1 + total) % total);
     } else if (e.key === "Enter" && activeIdx >= 0) {
       e.preventDefault();
-      const items = query.trim() ? suggestions : history;
       const chosen = query.trim()
         ? (suggestions[activeIdx]?.kanji || suggestions[activeIdx]?.reading)
         : history[activeIdx];

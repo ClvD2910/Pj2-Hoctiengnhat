@@ -68,6 +68,7 @@ export default function HomePage() {
     // Load search history from localStorage (same key as SearchDropdown)
     try {
       const hist = JSON.parse(localStorage.getItem("jisho_search_history") || "[]");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchHistory(hist.slice(0, 10));
     } catch {
       setSearchHistory([]);

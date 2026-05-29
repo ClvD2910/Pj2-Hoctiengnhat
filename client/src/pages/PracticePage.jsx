@@ -403,6 +403,7 @@ function QuizTab({ words }) {
         if (enabledTypes["audio-to-meaning"]     && w.meaning?.trim() && (w.word?.trim() || w.phonetic?.trim()))    types.push("audio-to-meaning");
         if (types.length === 0) return null;
 
+        // eslint-disable-next-line react-hooks/purity
         const type = types[Math.floor(Math.random() * types.length)];
 
         let correct, ansKey;
@@ -418,7 +419,7 @@ function QuizTab({ words }) {
         return { type, w, correct, choices };
       })
       .filter(Boolean);
-  }, [words, enabledTypes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [words, enabledTypes]);
 
   // Auto-play audio for audio question types
   useEffect(() => {
@@ -427,7 +428,7 @@ function QuizTab({ words }) {
     if (cur && (cur.type === "audio-to-word" || cur.type === "audio-to-meaning")) {
       speak(cur.w.word || cur.w.phonetic);
     }
-  }, [qi, questions, done]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [qi, questions, done]);
 
   const cur = questions[qi];
 

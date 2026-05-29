@@ -9,6 +9,29 @@ import CommentSection from "../components/CommentSection";
 // Matches CJK Unified Ideographs (the standard kanji block used in Japanese)
 const KANJI_RE = /[\u4e00-\u9fff]/g;
 
+function Pagination({ pagination, page, setPage }) {
+  if (!pagination || pagination.totalPages <= 1) return null;
+  return (
+    <div className="flex justify-center items-center gap-3 mt-6">
+      <button
+        onClick={() => setPage((p) => Math.max(1, p - 1))}
+        disabled={page <= 1}
+        className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm hover:bg-gray-100 transition disabled:opacity-30"
+      >
+        ← Trước
+      </button>
+      <span className="text-sm text-gray-500">Trang {page} / {pagination.totalPages}</span>
+      <button
+        onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+        disabled={page >= pagination.totalPages}
+        className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm hover:bg-gray-100 transition disabled:opacity-30"
+      >
+        Sau →
+      </button>
+    </div>
+  );
+}
+
 export default function SearchResultPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -26,6 +49,7 @@ export default function SearchResultPage() {
 
   useEffect(() => {
     if (!query) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError("");
     searchWords(query, page)
@@ -37,6 +61,7 @@ export default function SearchResultPage() {
       .finally(() => setLoading(false));
   }, [query, page]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setPage(1); }, [query]);
 
   // Split exact match 
@@ -58,6 +83,7 @@ export default function SearchResultPage() {
     const src = exactMatch?.kanji || "";
     const chars = src.match(KANJI_RE);
     if (!chars || chars.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setKanjiDetails([]);
       return;
     }
@@ -68,29 +94,7 @@ export default function SearchResultPage() {
     return () => { cancelled = true; };
   }, [exactMatch]);
 
-  // Pagination controls 
-  function Pagination() {
-    if (!pagination || pagination.totalPages <= 1) return null;
-    return (
-      <div className="flex justify-center items-center gap-3 mt-6">
-        <button
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-          disabled={page <= 1}
-          className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm hover:bg-gray-100 transition disabled:opacity-30"
-        >
-          ← Trước
-        </button>
-        <span className="text-sm text-gray-500">Trang {page} / {pagination.totalPages}</span>
-        <button
-          onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-          disabled={page >= pagination.totalPages}
-          className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm hover:bg-gray-100 transition disabled:opacity-30"
-        >
-          Sau →
-        </button>
-      </div>
-    );
-  }
+  // Pagination — component defined above at module scope
 
   return (
     <div className="p-4 md:p-6 pb-24 md:pb-8 max-w-6xl mx-auto">
@@ -191,7 +195,7 @@ export default function SearchResultPage() {
                     ))}
                   </div>
                 )}
-                <Pagination />
+                <Pagination pagination={pagination} page={page} setPage={setPage} />
               </div>
             </div>
           ) : (
@@ -202,7 +206,7 @@ export default function SearchResultPage() {
                   <WordCard key={word._id} word={word} variant="small" onClick={handleWordClick} />
                 ))}
               </div>
-              <Pagination />
+              <Pagination pagination={pagination} page={page} setPage={setPage} />
             </div>
           )}
 
