@@ -1,0 +1,54 @@
+# =============================================================
+# docker-compose.yml (dùng cho local development & staging)
+# Chạy: docker compose up --build
+# =============================================================
+
+services:
+
+  # ── Backend (Node/Express) ─────────────────────────────────
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: jvocab_server
+    restart: unless-stopped
+    env_file:
+      # File .env ở thư mục gốc — KHÔNG commit lên Git
+      - .env
+    environment:
+      NODE_ENV: production
+    volumes:
+      # Giữ lại avatar upload giữa các lần restart
+      - server_uploads:/app/uploads
+    networks:
+      - jvocab_network
+    # Expose nội bộ cho nginx proxy; không nhất thiết cần map ra host
+    # ports:
+    #   - "5000:5000"
+
+  # ── Frontend (React / Nginx) ───────────────────────────────
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: jvocab_client
+    restart: unless-stopped
+    ports:
+      # Dùng port 3000 trên host để tránh xung đột với IIS/Apache trên Windows
+      # Truy cập: http://localhost:3000
+      # Trên VPS production dùng docker-compose.prod.yml vẫn map 80:80
+      - "3000:80"
+    depends_on:
+      - server
+    networks:
+      - jvocab_network
+
+# ── Named volumes ──────────────────────────────────────────────
+volumes:
+  server_uploads:
+    driver: local
+
+# ── Networks ───────────────────────────────────────────────────
+networks:
+  jvocab_network:
+    driver: bridge

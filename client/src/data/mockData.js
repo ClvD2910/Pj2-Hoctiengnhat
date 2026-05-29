@@ -1,0 +1,91 @@
+export const mockWords = [
+  {
+    _id: "mock-1",
+    kanji: "食べる",
+    reading: "たべる",
+    romaji: "taberu",
+    pos: "v1",
+    jlpt: "N5",
+    sinoViet: "THỰC",
+    meanings: ["Ăn, dùng bữa", "Tiêu dùng (tiền, thời gian)"],
+    examples: [
+      { jp: "毎日ご飯を食べます。", vn: "Mỗi ngày tôi ăn cơm." },
+      { jp: "何を食べたいですか？", vn: "Bạn muốn ăn gì?" },
+    ],
+  },
+  {
+    _id: "mock-2",
+    kanji: "勉強",
+    reading: "べんきょう",
+    romaji: "benkyou",
+    pos: "n vs",
+    jlpt: "N5",
+    sinoViet: "MIỄN CƯỠNG",
+    meanings: ["Học tập, nghiên cứu"],
+    examples: [
+      { jp: "日本語を勉強しています。", vn: "Tôi đang học tiếng Nhật." },
+      { jp: "毎日三時間勉強します。", vn: "Mỗi ngày tôi học 3 tiếng." },
+    ],
+  },
+  {
+    _id: "mock-3",
+    kanji: "図書館",
+    reading: "としょかん",
+    romaji: "toshokan",
+    pos: "n",
+    jlpt: "N4",
+    sinoViet: "ĐỒ THƯ QUÁN",
+    meanings: ["Thư viện"],
+    examples: [
+      { jp: "図書館で本を借りました。", vn: "Tôi đã mượn sách ở thư viện." },
+    ],
+  },
+  {
+    _id: "mock-4",
+    kanji: "難しい",
+    reading: "むずかしい",
+    romaji: "muzukashii",
+    pos: "adj-i",
+    jlpt: "N5",
+    sinoViet: "NAN",
+    meanings: ["Khó, phức tạp", "Khó tính, cầu kỳ"],
+    examples: [
+      { jp: "この問題は難しいです。", vn: "Bài toán này khó quá." },
+    ],
+  },
+  {
+    _id: "mock-5",
+    kanji: "電車",
+    reading: "でんしゃ",
+    romaji: "densha",
+    pos: "n",
+    jlpt: "N5",
+    sinoViet: "ĐIỆN XA",
+    meanings: ["Tàu điện, tàu hỏa"],
+    examples: [
+      { jp: "電車で学校に行きます。", vn: "Tôi đi học bằng tàu điện." },
+    ],
+  },
+  {
+    _id: "mock-6",
+    kanji: "美しい",
+    reading: "うつくしい",
+    romaji: "utsukushii",
+    pos: "adj-i",
+    jlpt: "N4",
+    sinoViet: "MỸ",
+    meanings: ["Đẹp, xinh đẹp", "Tuyệt vời, hoàn hảo"],
+    examples: [
+      { jp: "桜はとても美しいですね。", vn: "Hoa anh đào đẹp thật nhỉ." },
+    ],
+  },
+];
+
+export const mockNotebooks = [
+  { _id: "nb-1", name: "Từ vựng N5", wordCount: 42, progress: 78 },
+  { _id: "nb-2", name: "Từ vựng N4", wordCount: 30, progress: 45 },
+  { _id: "nb-3", name: "Kanji tuần 1", wordCount: 15, progress: 20 },
+  { _id: "nb-4", name: "Từ khó nhớ", wordCount: 8, progress: 60 },
+  { _id: "nb-5", name: "Động từ nhóm 1", wordCount: 25, progress: 90 },
+  { _id: "nb-6", name: "Tính từ đuôi い", wordCount: 12, progress: 35 },
+];

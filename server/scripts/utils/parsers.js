@@ -3,10 +3,8 @@ const path = require("path");
 const csvParser = require("csv-parser");
 const JSONStream = require("JSONStream");
 
-// ---------------------------------------------------------------------------
 // Strategy Pattern: Mỗi parser là một strategy trả về Readable stream
 // phát ra từng record (object) một — KHÔNG nạp toàn bộ file vào RAM.
-// ---------------------------------------------------------------------------
 
 /**
  * Strategy: Parse JSON file bằng JSONStream.
@@ -48,9 +46,7 @@ class CsvStreamParser {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Parser Factory — tự chọn strategy dựa trên đuôi file
-// ---------------------------------------------------------------------------
 
 const parserStrategies = {
   ".json": (opts) => new JsonStreamParser(opts.jsonPath),

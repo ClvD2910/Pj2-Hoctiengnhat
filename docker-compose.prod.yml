@@ -1,0 +1,57 @@
+# =============================================================
+# docker-compose.prod.yml (dùng trên VPS production)
+# Dùng pre-built images từ Docker Hub thay vì build từ source
+# Chạy: docker compose -f docker-compose.prod.yml up -d
+# =============================================================
+
+services:
+
+  mongo:
+    image: mongo:7.0
+    container_name: jvocab_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - jvocab_network
+
+  server:
+    # Image được CD pipeline build và push lên Docker Hub
+    image: ${DOCKERHUB_USERNAME}/jvocab-server:${IMAGE_TAG:-latest}
+    container_name: jvocab_server
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    volumes:
+      - server_uploads:/app/uploads
+    depends_on:
+      - mongo
+    networks:
+      - jvocab_network
+
+  client:
+    image: ${DOCKERHUB_USERNAME}/jvocab-client:${IMAGE_TAG:-latest}
+    container_name: jvocab_client
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    networks:
+      - jvocab_network
+
+volumes:
+  mongo_data:
+    driver: local
+  server_uploads:
+    driver: local
+
+networks:
+  jvocab_network:
+    driver: bridge
